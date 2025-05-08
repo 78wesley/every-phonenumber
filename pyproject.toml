@@ -1,0 +1,10 @@
+[project]
+name = "every-phonenumber"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "phonenumbers>=9.0.5",
+    "python-fasthtml>=0.12.15",
+]
