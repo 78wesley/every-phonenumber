@@ -1,8 +1,56 @@
 from fasthtml.common import *
 import phonenumbers
 from phonenumbers import geocoder, carrier, timezone
+from fastlite import *
+import os
 
-app, rt = fast_app()
+app, rt = fast_app(debug=True)
+
+database_path = "databases"
+
+path_db_country_codes = f"{database_path}/country_codes.db"
+
+db_country_codes = database(path_db_country_codes)
+db_country_codes_table = db_country_codes.t.country_codes
+
+
+@dataclass
+class CountryCodes:
+    id: int
+    iso_numeric: str
+    country_name: str
+    iso2: str
+    iso3: str
+    top_level_domain: str
+    fips: str
+    e164: str
+    continent: str
+    capital: str
+    time_zone_in_capital: str
+
+
+if "country_codes" not in db_country_codes_table:
+    create_table_db_country_codes = db_country_codes.create(CountryCodes, pk="id")
+
+print(db_country_codes_table[0])
+
+# TODO take a look at this chatgpt chat: https://chatgpt.com/c/684c6e2a-85c4-8008-8d19-73d53d89b78c
+
+# if db_country_codes_table.lookup({"iso_numeric": "528"}) is None:
+#     create_table_db_country_codes.insert(
+#         CountryCodes(
+#             iso_numeric="528",
+#             country_name="Netherlands",
+#             iso2="NL",
+#             iso3="NLD",
+#             top_level_domain=".nl",
+#             fips="NL",
+#             e164="+31",
+#             continent="Europe",
+#             capital="Amsterdam",
+#             time_zone_in_capital="Europe/Amsterdam",
+#         )
+#     )
 
 
 # Main route with search bar and infinite scroll
@@ -118,18 +166,20 @@ def get(n: str):
         return Card(
             A("Back to list", href="/"),
             H3(f"Phone Number: +{n}"),
-            P(f"E164 Format: {e164}"),
-            P(f"International Format: {international}"),
-            P(f"National Format: {national}"),
-            P(f"RFC3966 Format: {rfc3966}"),
-            P(f"Country: {country or 'Unknown'}"),
-            P(f"Region Code: {region or 'Unknown'}"),
-            P(f"Carrier: {carrier_name or 'Unknown'}"),
-            P(f"Timezone(s): {', '.join(time_zones) or 'Unknown'}"),
-            P(f"Valid Number: {'Yes' if is_valid else 'No'}"),
-            P(f"Possible Number: {'Yes' if possible else 'No'}"),
-            P(f"Possibility Reason: {possible_reason}"),
-            P(f"Number Type: {type_names.get(number_type, 'Unknown')}"),
+            Table(
+                Tr(Td("E164 Format:"), Td(e164)),
+                Tr(Td("International Format:"), Td(international)),
+                Tr(Td("National Format:"), Td(national)),
+                Tr(Td("RFC3966 Format:"), Td(rfc3966)),
+                Tr(Td("Country:"), Td(country or "Unknown")),
+                Tr(Td("Region Code:"), Td(region or "Unknown")),
+                Tr(Td("Carrier:"), Td(carrier_name or "Unknown")),
+                Tr(Td("Timezone(s):"), Td(", ".join(time_zones) or "Unknown")),
+                Tr(Td("Valid Number:"), Td("Yes" if is_valid else "No")),
+                Tr(Td("Possible Number:"), Td("Yes" if possible else "No")),
+                Tr(Td("Possibility Reason:"), Td(str(possible_reason))),
+                Tr(Td("Number Type:"), Td(type_names.get(number_type, "Unknown"))),
+            ),
         )
     except phonenumbers.NumberParseException:
         return Card(H3("Invalid Phone Number"), A("Back to list", href="/"), P("The provided number could not be parsed."))
