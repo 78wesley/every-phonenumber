@@ -1,188 +1,215 @@
 from fasthtml.common import *
 import phonenumbers
-from phonenumbers import geocoder, carrier, timezone
-from fastlite import *
+import peewee as pw
 import os
 
-app, rt = fast_app(debug=True)
+import phonenumbers.carrier
+import phonenumbers.geocoder
+import phonenumbers.timezone
 
-database_path = "databases"
-
-path_db_country_codes = f"{database_path}/country_codes.db"
-
-db_country_codes = database(path_db_country_codes)
-db_country_codes_table = db_country_codes.t.country_codes
-
-
-@dataclass
-class CountryCodes:
-    id: int
-    iso_numeric: str
-    country_name: str
-    iso2: str
-    iso3: str
-    top_level_domain: str
-    fips: str
-    e164: str
-    continent: str
-    capital: str
-    time_zone_in_capital: str
-
-
-if "country_codes" not in db_country_codes_table:
-    create_table_db_country_codes = db_country_codes.create(CountryCodes, pk="id")
-
-print(db_country_codes_table[0])
 
 # TODO take a look at this chatgpt chat: https://chatgpt.com/c/684c6e2a-85c4-8008-8d19-73d53d89b78c
 
-# if db_country_codes_table.lookup({"iso_numeric": "528"}) is None:
-#     create_table_db_country_codes.insert(
-#         CountryCodes(
-#             iso_numeric="528",
-#             country_name="Netherlands",
-#             iso2="NL",
-#             iso3="NLD",
-#             top_level_domain=".nl",
-#             fips="NL",
-#             e164="+31",
-#             continent="Europe",
-#             capital="Amsterdam",
-#             time_zone_in_capital="Europe/Amsterdam",
-#         )
-#     )
+
+app = FastHTML(debug=True, hdrs=picolink, title="LibPhoneX - Every Phone Number")
+rt = app.route
+
+# SQLite database
+# Ensure the 'databases' directory exists
+if not os.path.exists("databases"):
+    os.makedirs("databases")
+db = pw.SqliteDatabase("databases/libphonex.db")
 
 
-# Main route with search bar and infinite scroll
+# Models
+class BaseModel(pw.Model):
+    class Meta:
+        database = db
+
+
+def create_phone_number_model(country_code):
+    class Meta:
+        database = db
+        table_name = f"phone_numbers_{country_code.lower()}"
+
+    attrs = {
+        "country_code": pw.CharField(),
+        "international_prefix": pw.CharField(null=True),
+        "national_number": pw.CharField(),
+        "type": pw.CharField(null=True),
+        "is_valid": pw.BooleanField(),
+        "notes": pw.TextField(null=True),
+        "Meta": Meta,
+    }
+
+    PhoneNumber = type("PhoneNumber", (BaseModel,), attrs)
+    return PhoneNumber
+
+
+class ValidationRule(BaseModel):
+    country_code = pw.CharField()
+    type = pw.CharField()
+    regex = pw.CharField()
+    example = pw.CharField(null=True)
+    description = pw.TextField(null=True)
+
+
+class Issue(BaseModel):
+    phone_number = pw.CharField()
+    reason = pw.TextField()
+    reported_at = pw.DateTimeField(constraints=[pw.SQL("DEFAULT CURRENT_TIMESTAMP")])
+    status = pw.CharField(default="open")
+    resolution_notes = pw.TextField(null=True)
+
+
+# Setup
+def setup_database(country_code):
+    db.connect()
+    PhoneNumber = create_phone_number_model(country_code)
+    db.create_tables([PhoneNumber, ValidationRule, Issue], safe=True)
+
+    if not ValidationRule.select().where((ValidationRule.country_code == country_code) & (ValidationRule.type == "mobile") & (ValidationRule.regex == "^6\\d{8}$")).exists():
+        ValidationRule.create(country_code=country_code, type="mobile", regex="^6\\d{8}$", example="612345678", description="Standaard mobiel nummer in Nederland")
+
+    if not PhoneNumber.select().where((PhoneNumber.country_code == country_code) & (PhoneNumber.national_number == "612345678")).exists():
+        PhoneNumber.create(country_code=country_code, international_prefix="+31", national_number="612345678", type="mobile", is_valid=True, notes="Typisch geldig mobiel nummer")
+
+    if not Issue.select().where(Issue.phone_number == "+31600000000").exists():
+        Issue.create(phone_number="+31600000000", reason="Nummer wordt onterecht als ongeldig gemarkeerd")
+
+    db.close()
+
+
+setup_database("NL")
+
+
+# TODO add country and language selection
 @rt("/")
-def get():
-    return Title("Every Phone Number (Global)"), Container(
+def get(number: str = ""):
+    return Title("Every Phone Number"), Container(
         Div(
             H1("Every Phone Number"),
-            # 🔍 Search form
             Form(
-                Input(id="search", name="number", placeholder="Search any phone number...", type="tel"),
-                Button("Search"),
-                action="/search",
+                Label("Search Phone Number:", _for="number"),
+                Fieldset(
+                    Input(type="tel", value=number, name="number", id="number", placeholder="Search phone number in E164 format...", autocomplete=False),
+                    Input(
+                        type="submit",
+                        value="Search",
+                        hx_get="/",
+                        hx_include="[name='number']",
+                        hx_target="body",
+                        hx_swap="innerHTML",
+                        hx_push_url="true",
+                    ),
+                    role="group",
+                ),
+                action="/",
                 method="get",
                 style="margin-bottom: 1rem;",
             ),
-            Ul(id="phone-list"),
-            Div("Loading...", id="loading"),
+            get_phone_number_details(number) if number else P("Enter a phone number to see details."),
             id="main",
-        ),
-        Script(
-            """
-        let index = 1000000000000n;
-        const batchSize = 100n;
-        let loading = false;
-
-        async function loadMore() {
-            if (loading) return;
-            loading = true;
-            const response = await fetch(`/batch/${index}`);
-            const html = await response.text();
-            document.getElementById("phone-list").insertAdjacentHTML("beforeend", html);
-            index += batchSize;
-            loading = false;
-        }
-
-        window.addEventListener('scroll', () => {
-            if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 100) {
-                loadMore();
-            }
-        });
-
-        loadMore();
-        """
         ),
     )
 
 
-# 🔎 Search handler redirects to detail page
-@rt("/search")
-def get(number: str = ""):
-    number = number.strip().lstrip("+")
-    if not number.isdigit():
-        return RedirectResponse("/", status_code=303)
-    return RedirectResponse(f"/phone/{number}", status_code=303)
-
-
-# Load a batch of numbers
-@rt("/batch/{start:str}")
-def get(start: str):
+def get_phone_number_details(number: str):
     try:
-        start_n = int(start)
-    except ValueError:
-        return Response("Invalid start", status_code=400)
+        # TODO see
+        # https://github.com/google/libphonenumber/blob/1febc82e196b089be64de8cbde6075ebc7cedceb/java/demo/src/main/java/com/google/phonenumbers/demo/ResultServlet.java
+        # search country 2 chars for the phone number
 
-    items = []
-    for i in range(start_n, start_n + 100):
-        num = f"+{i}"
-        items.append(f"<li><a href='/phone/{i}' hx-get='/phone/{i}' hx-target='#phone-detail'>{num}</a></li>")
+        numobj = phonenumbers.parse(number)
 
-    return "\n".join(items)
-
-
-# Detail view for a phone number
-@rt("/phone/{n:str}")
-def get(n: str):
-
-    try:
-        # Parse number with country code
-        pn = phonenumbers.parse("+" + n)
+        country_code = phonenumbers.region_code_for_number(numobj)
+        numobj = phonenumbers.parse(number=number, region=country_code, keep_raw_input=True)
 
         # Get metadata
-        country = geocoder.description_for_number(pn, "en")
-        carrier_name = carrier.name_for_number(pn, "en")
-        time_zones = timezone.time_zones_for_number(pn)
-        is_valid = phonenumbers.is_valid_number(pn)
-        number_type = phonenumbers.number_type(pn)
-        type_names = {
-            phonenumbers.PhoneNumberType.FIXED_LINE: "Fixed Line",
-            phonenumbers.PhoneNumberType.MOBILE: "Mobile",
-            phonenumbers.PhoneNumberType.FIXED_LINE_OR_MOBILE: "Fixed Line or Mobile",
-            phonenumbers.PhoneNumberType.TOLL_FREE: "Toll Free",
-            phonenumbers.PhoneNumberType.PREMIUM_RATE: "Premium Rate",
-            phonenumbers.PhoneNumberType.SHARED_COST: "Shared Cost",
-            phonenumbers.PhoneNumberType.VOIP: "VoIP",
-            phonenumbers.PhoneNumberType.PERSONAL_NUMBER: "Personal Number",
-            phonenumbers.PhoneNumberType.PAGER: "Pager",
-            phonenumbers.PhoneNumberType.UAN: "UAN",
-            phonenumbers.PhoneNumberType.UNKNOWN: "Unknown",
-        }
+        is_valid_number = phonenumbers.is_valid_number(numobj)
 
         # Format number in different formats
-        e164 = phonenumbers.format_number(pn, phonenumbers.PhoneNumberFormat.E164)
-        international = phonenumbers.format_number(pn, phonenumbers.PhoneNumberFormat.INTERNATIONAL)
-        national = phonenumbers.format_number(pn, phonenumbers.PhoneNumberFormat.NATIONAL)
-        rfc3966 = phonenumbers.format_number(pn, phonenumbers.PhoneNumberFormat.RFC3966)
+        format_e164 = phonenumbers.format_number(numobj, phonenumbers.PhoneNumberFormat.E164)
+        format_international = phonenumbers.format_number(numobj, phonenumbers.PhoneNumberFormat.INTERNATIONAL)
+        format_national = phonenumbers.format_number(numobj, phonenumbers.PhoneNumberFormat.NATIONAL)
+        format_rfc3966 = phonenumbers.format_number(numobj, phonenumbers.PhoneNumberFormat.RFC3966)
 
         # Get additional metadata
-        region = phonenumbers.region_code_for_number(pn)
-        possible = phonenumbers.is_possible_number(pn)
-        possible_reason = phonenumbers.is_possible_number_with_reason(pn)
+        region = phonenumbers.region_code_for_number(numobj)
+        is_possible_number = phonenumbers.is_possible_number(numobj)
+        is_possible_number_with_reason = phonenumbers.ValidationResult.to_string(phonenumbers.is_possible_number_with_reason(numobj))
+        get_number_type = phonenumbers.PhoneNumberType.to_string(phonenumbers.number_type(numobj))
+
+        country_code = phonenumbers.region_code_for_number(numobj)
+        country_code_source = phonenumbers.CountryCodeSource.to_string(numobj.country_code_source)
+
+        # as you type formatter
+        as_you_type_formatter = phonenumbers.AsYouTypeFormatter(country_code)
+
+        # Data for the tables
+        parsing_data = {
+            "Country Code": numobj.country_code,
+            "National Number": numobj.national_number,
+            "Extension": numobj.extension,
+            "Country Code Source": country_code_source,
+            "Italian Leading Zero": "true " if numobj.italian_leading_zero else "false",
+            "Number of Leading Zeros": numobj.number_of_leading_zeros or "1",
+            "Raw Input": str(numobj.raw_input),
+            "Preferred Domestic Carrier Code": numobj.preferred_domestic_carrier_code,
+        }
+        validation_data = {
+            "Result from isPossibleNumber()": "true" if is_possible_number else "false",
+            "Result from isPossibleNumberWithReason()": str(is_possible_number_with_reason),
+            "Result from isValidNumber()": "true" if is_valid_number else "false",
+            "Phone Number region": region,
+            "Result from getNumberType()": get_number_type,
+        }
+
+        formatting_data = {
+            "E164 format": format_e164,
+            "Original format": format_e164,
+            "National format": format_national,
+            "International format": format_international,
+            "RFC3966 format": format_rfc3966,
+            "Out-of-country format from US": phonenumbers.format_out_of_country_calling_number(numobj, region_calling_from="US"),
+            "Out-of-country format from CH": phonenumbers.format_out_of_country_calling_number(numobj, region_calling_from="CH"),
+            "Format for mobile dialing (calling from US)": phonenumbers.format_number_for_mobile_dialing(numobj, "US", with_formatting=True),
+            "Format for national dialing with preferred carrier code and empty fallback carrier code": phonenumbers.format_national_number_with_carrier_code(numobj, ""),
+        }
+
+        geocoder_result = phonenumbers.geocoder.description_for_number(numobj, "en") or "Unknown"
+        timezone_result = ", ".join(phonenumbers.timezone.time_zones_for_number(numobj)) or "Unknown"
+        carrier_result = phonenumbers.carrier.name_for_number(numobj, "en") or "Unknown"
+
+        # Helper function to create table rows
+        td_width = "50%"
+
+        def create_rows(data):
+            return [Tr(Td(key, width=td_width), Td(value)) for key, value in data.items()]
+
+        # Generate AsYouTypeFormatter results
+        as_you_type_results = [
+            Tr(Td(1 + i, width="1%"), Td(f"Char entered: '{char}' Output: ", width=td_width), Td(as_you_type_formatter.input_digit(char))) for i, char in enumerate(number)
+        ]
 
         return Card(
-            A("Back to list", href="/"),
-            H3(f"Phone Number: +{n}"),
-            Table(
-                Tr(Td("E164 Format:"), Td(e164)),
-                Tr(Td("International Format:"), Td(international)),
-                Tr(Td("National Format:"), Td(national)),
-                Tr(Td("RFC3966 Format:"), Td(rfc3966)),
-                Tr(Td("Country:"), Td(country or "Unknown")),
-                Tr(Td("Region Code:"), Td(region or "Unknown")),
-                Tr(Td("Carrier:"), Td(carrier_name or "Unknown")),
-                Tr(Td("Timezone(s):"), Td(", ".join(time_zones) or "Unknown")),
-                Tr(Td("Valid Number:"), Td("Yes" if is_valid else "No")),
-                Tr(Td("Possible Number:"), Td("Yes" if possible else "No")),
-                Tr(Td("Possibility Reason:"), Td(str(possible_reason))),
-                Tr(Td("Number Type:"), Td(type_names.get(number_type, "Unknown"))),
-            ),
+            H3(f"Parsing Result (parseAndKeepRawInput())"),
+            Table(*create_rows(parsing_data)),
+            H3("Validation Results"),
+            Table(*create_rows(validation_data)),
+            H3("Formatting Results"),
+            Table(*create_rows(formatting_data)),
+            H3("AsYouTypeFormatter Results"),
+            Table(*as_you_type_results),
+            H3("PhoneNumberOfflineGeocoder Results"),
+            Table(Tr(Td("Location", width=td_width), Td(geocoder_result))),
+            H3("PhoneNumberToTimeZonesMapper Results"),
+            Table(Tr(Td("Time zone(s)", width=td_width), Td(timezone_result))),
+            H3("PhoneNumberToCarrierMapper Results"),
+            Table(Tr(Td("Carrier", width=td_width), Td(carrier_result))),
         )
     except phonenumbers.NumberParseException:
-        return Card(H3("Invalid Phone Number"), A("Back to list", href="/"), P("The provided number could not be parsed."))
+        return Card(H3("Invalid Phone Number"), P("The provided number could not be parsed."))
 
 
 serve()

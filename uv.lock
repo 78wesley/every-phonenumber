@@ -94,16 +94,16 @@ name = "every-phonenumber"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "fastlite" },
+    { name = "peewee" },
     { name = "phonenumbers" },
     { name = "python-fasthtml" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "fastlite", specifier = ">=0.1.3" },
-    { name = "phonenumbers", specifier = ">=9.0.5" },
-    { name = "python-fasthtml", specifier = ">=0.12.15" },
+    { name = "peewee", specifier = ">=3.18.1" },
+    { name = "phonenumbers", specifier = ">=9.0.7" },
+    { name = "python-fasthtml", specifier = ">=0.12.19" },
 ]
 
 [[package]]
@@ -220,12 +220,18 @@ wheels = [
 ]
 
 [[package]]
-name = "phonenumbers"
-version = "9.0.5"
+name = "peewee"
+version = "3.18.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/49/3f/3c0ae68353f4cd58ef2d683c2d3f343e1804118c27216495f80c7e4eb6b3/phonenumbers-9.0.5.tar.gz", hash = "sha256:70fde168a92dd9c73f57872359515181d6cde6bb8e7ec5660e94c4ca45692c50", size = 2296916, upload-time = "2025-05-08T06:00:01.782Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1e/ce/c2bb58d00cb12d19dea28d5a98d05a14350197a3d03eba60be9bae708bac/peewee-3.18.1.tar.gz", hash = "sha256:a76a694b3b3012ce22f00d51fd83e55bf80b595275a90ed62cd36eb45496cf1d", size = 3026130, upload-time = "2025-04-30T15:40:35.06Z" }
+
+[[package]]
+name = "phonenumbers"
+version = "9.0.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/49/8c/2c09b844e819e70c261ad79cc302a5e307d97cb0ab70c227031d8ad72871/phonenumbers-9.0.7.tar.gz", hash = "sha256:d4cc2aa36cbf9b0004c370f406d1510ddef56bba9e5f759471ef47e998d8a2f9", size = 2297250, upload-time = "2025-06-09T06:01:09.224Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/43/b2/1fba8f2aa0a54450a53e88f59e39d58a611438919e3a7623641558bc77f9/phonenumbers-9.0.5-py2.py3-none-any.whl", hash = "sha256:7acef19817868a6f9cbc0d628dc5ad447b3768137e3d53c70dd6827a1ac040ba", size = 2582730, upload-time = "2025-05-08T05:59:57.903Z" },
+    { url = "https://files.pythonhosted.org/packages/03/d6/71ed688698834669f61dbba51601a27b62c1a7f5f868444f973a3fd33dc8/phonenumbers-9.0.7-py2.py3-none-any.whl", hash = "sha256:306eb14d1eaeb82230a08aa1614d04c93322b65b1ded2fff585161ed7eca39fc", size = 2583027, upload-time = "2025-06-09T06:01:04.772Z" },
 ]
 
 [[package]]
@@ -251,7 +257,7 @@ wheels = [
 
 [[package]]
 name = "python-fasthtml"
-version = "0.12.15"
+version = "0.12.19"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beautifulsoup4" },
@@ -265,9 +271,9 @@ dependencies = [
     { name = "starlette" },
     { name = "uvicorn", extra = ["standard"] },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7c/6c/0d84b6497e97fcfd63d5750f285e4822873485a910cbbc72a39082a1d171/python_fasthtml-0.12.15.tar.gz", hash = "sha256:307e9465d7a71cb2df43055ecaef7c942023b6c05a800cb9662637c02eade74c", size = 63271, upload-time = "2025-05-03T09:12:30.505Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e0/2d/8b6a7d99c06596a792413609b5ef2039a133dd6040b4e384f8afe7d8b52a/python_fasthtml-0.12.19.tar.gz", hash = "sha256:da4794a408c4ad4dd21168a2046ff6c302877f4994f4c374df1448efef75901a", size = 67485, upload-time = "2025-05-29T03:33:28.381Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ae/43/6dadd7ca99726746b174282bed85cdc5d891b7f2459c5e63c8fc94f05f4e/python_fasthtml-0.12.15-py3-none-any.whl", hash = "sha256:402228f6559d51f8b2240817089750bc80b252e2cf403f5ee71472f48fac9627", size = 65767, upload-time = "2025-05-03T09:12:28.605Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/d3/7583a848244ec8f03a224bdb77a8ae76aae158d1977f60a1f84969c7d144/python_fasthtml-0.12.19-py3-none-any.whl", hash = "sha256:53467b05f7c286fca8298b4f1e84ff8cd64cf272b9a93db2109ce789ddcf7a1c", size = 69964, upload-time = "2025-05-29T03:33:26.338Z" },
 ]
 
 [[package]]
