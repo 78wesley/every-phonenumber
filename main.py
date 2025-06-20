@@ -2,7 +2,7 @@ from fasthtml.common import *
 import phonenumbers
 import peewee as pw
 import os
-
+import urllib.parse
 import phonenumbers.carrier
 import phonenumbers.geocoder
 import phonenumbers.timezone
@@ -192,8 +192,10 @@ def get_phone_number_details(number: str):
             Tr(Td(1 + i, width="1%"), Td(f"Char entered: '{char}' Output: ", width=td_width), Td(as_you_type_formatter.input_digit(char))) for i, char in enumerate(number)
         ]
 
+        libphonenumber_link = Small(A("LibPhoneNumber", href="https://libphonenumber.appspot.com/phonenumberparser?number=" + urllib.parse.quote(number), target="_blank"))
+
         return Card(
-            H3(f"Parsing Result (parseAndKeepRawInput())"),
+            H3(f"Parsing Result (parseAndKeepRawInput()) ", libphonenumber_link),
             Table(*create_rows(parsing_data)),
             H3("Validation Results"),
             Table(*create_rows(validation_data)),
