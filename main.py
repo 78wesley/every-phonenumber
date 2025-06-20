@@ -6,6 +6,8 @@ import urllib.parse
 import phonenumbers.carrier
 import phonenumbers.geocoder
 import phonenumbers.timezone
+import iso_list
+from collections import OrderedDict
 
 
 # TODO take a look at this chatgpt chat: https://chatgpt.com/c/684c6e2a-85c4-8008-8d19-73d53d89b78c
@@ -85,19 +87,31 @@ setup_database("NL")
 
 # TODO add country and language selection
 @rt("/")
-def get(number: str = ""):
+def get(number: str = "", country: str = ""):
+    country_select_list = [Option(item, value=item, selected=False) for item in iso_list.ISO_3166]
+    country_select_list.insert(0, Option("", value="", selected=not country))
+    for item in country_select_list:
+        if item.value == country:
+            item.selected = True
+
     return Title("Every Phone Number"), Container(
         Div(
             H1("Every Phone Number"),
             Form(
                 Label("Search Phone Number:", _for="number"),
                 Fieldset(
-                    Input(type="tel", value=number, name="number", id="number", placeholder="Search phone number in E164 format...", autocomplete=False),
+                    Input(type="tel", value=number, name="number", id="number", placeholder="Search phone number in E164 format...", autocomplete="false"),
+                    Select(
+                        *country_select_list,
+                        name="country",
+                        id="country",
+                        autocomplete="false",
+                    ),
                     Input(
                         type="submit",
                         value="Search",
                         hx_get="/",
-                        hx_include="[name='number']",
+                        hx_include="[name='number'], [name='country']",
                         hx_target="body",
                         hx_swap="innerHTML",
                         hx_push_url="true",
@@ -108,19 +122,19 @@ def get(number: str = ""):
                 method="get",
                 style="margin-bottom: 1rem;",
             ),
-            get_phone_number_details(number) if number else P("Enter a phone number to see details."),
+            get_phone_number_details(number, country=country) if number else P("Enter a phone number to see details."),
             id="main",
         ),
     )
 
 
-def get_phone_number_details(number: str):
+def get_phone_number_details(number: str, country: str):
     try:
         # TODO see
         # https://github.com/google/libphonenumber/blob/1febc82e196b089be64de8cbde6075ebc7cedceb/java/demo/src/main/java/com/google/phonenumbers/demo/ResultServlet.java
         # search country 2 chars for the phone number
 
-        numobj = phonenumbers.parse(number)
+        numobj = phonenumbers.parse(number, region=country)
 
         country_code = phonenumbers.region_code_for_number(numobj)
         numobj = phonenumbers.parse(number=number, region=country_code, keep_raw_input=True)
@@ -140,7 +154,6 @@ def get_phone_number_details(number: str):
         is_possible_number_with_reason = phonenumbers.ValidationResult.to_string(phonenumbers.is_possible_number_with_reason(numobj))
         get_number_type = phonenumbers.PhoneNumberType.to_string(phonenumbers.number_type(numobj))
 
-        country_code = phonenumbers.region_code_for_number(numobj)
         country_code_source = phonenumbers.CountryCodeSource.to_string(numobj.country_code_source)
 
         # as you type formatter
@@ -164,6 +177,16 @@ def get_phone_number_details(number: str):
             "Phone Number region": region,
             "Result from getNumberType()": get_number_type,
         }
+
+        # Insert "Result from isValidNumberForRegion()" just below "Result from isValidNumber()"
+        if country:
+            # Create a new ordered dict to preserve order
+            new_validation_data = OrderedDict()
+            for k, v in validation_data.items():
+                new_validation_data[k] = v
+                if k == "Result from isValidNumber()":
+                    new_validation_data["Result from isValidNumberForRegion()"] = "true" if phonenumbers.is_valid_number_for_region(numobj, country) else "false"
+            validation_data = new_validation_data
 
         formatting_data = {
             "E164 format": format_e164,
