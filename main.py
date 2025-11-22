@@ -11,7 +11,6 @@ load_dotenv()
 
 hdrs = (Link(rel="stylesheet", href=picocss), Style(":root { --pico-font-size: 90%; }"))
 
-print(os.getenv("DEBUG", "False").lower() in ("true", "1", "t"))
 app = FastHTML(
     debug=os.getenv("DEBUG", "False").lower() in ("true", "1", "t"),
     hdrs=hdrs,
