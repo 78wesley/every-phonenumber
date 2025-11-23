@@ -7,15 +7,43 @@ import phonenumbers.timezone as pn_timezone
 from urllib import parse as urllib_parse
 
 
-def invalid_number_card(number):
+def recommandation_message(number: str, country: str):
+    number = f"+{number}"
+    return H6(
+        "Do you mean: ",
+        I(
+            A(
+                number,
+                href=f"?number={urllib_parse.quote(number)}&country={urllib_parse.quote(country)}",
+                target="_self",
+            )
+        ),
+        " ?",
+        style="display:inline",
+    )
+
+
+def invalid_number_card(number: str = "", country: str = ""):
     return Card(
         H5("Invalid Phone Number"),
         P(f"The provided number '{number}' could not be parsed."),
+        recommandation_message(number, country),
     )
 
 
 def noinput_card():
     return Card(H5("Enter a phone number to see details."))
+
+
+def libphonenumber_link(number_e164: str):
+    return Small(
+        A(
+            "LibPhoneNumber",
+            href="https://libphonenumber.appspot.com/phonenumberparser?number="
+            + urllib_parse.quote(number_e164),
+            target="_blank",
+        )
+    )
 
 
 def details_page(req: Request, number: str, country: str):
@@ -132,32 +160,17 @@ def details_page(req: Request, number: str, country: str):
             for i, char in enumerate(number)
         ]
 
-        libphonenumber_link = Small(
-            A(
-                "LibPhoneNumber",
-                href="https://libphonenumber.appspot.com/phonenumberparser?number="
-                + urllib_parse.quote(format_e164),
-                target="_blank",
-            )
-        )
-        # get current params and update the number to E.164 format
-        recommandation_message = (
-            (
-                H6("Use E.164 format:", style="display:inline"),
-                A(
-                    format_e164,
-                    href=f"?number={urllib_parse.quote(format_e164)}&country={urllib_parse.quote(country)}",
-                    target="_self",
-                ),
-            )
-            if not numobj.country_code_source
-            == pn.CountryCodeSource.FROM_NUMBER_WITH_PLUS_SIGN
-            else ""
-        )
-
         return Card(
-            recommandation_message,
-            H5(f"Parsing Result (parseAndKeepRawInput()) ", libphonenumber_link),
+            (
+                recommandation_message(number, country)
+                if not numobj.country_code_source
+                == pn.CountryCodeSource.FROM_NUMBER_WITH_PLUS_SIGN
+                else ""
+            ),
+            H5(
+                f"Parsing Result (parseAndKeepRawInput()) ",
+                libphonenumber_link(format_e164),
+            ),
             Table(*create_rows(parsing_data)),
             H5("Validation Results"),
             Table(*create_rows(validation_data)),
@@ -173,4 +186,4 @@ def details_page(req: Request, number: str, country: str):
             Table(Tr(Td("Carrier", width=td_width), Td(carrier_result))),
         )
     except pn.NumberParseException:
-        return invalid_number_card(number)
+        return invalid_number_card(number, country)
