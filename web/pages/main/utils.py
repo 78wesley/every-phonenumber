@@ -1,4 +1,16 @@
 from fasthtml.common import *
+import lib.iso_list as iso_list
+
+def CountryOptionList(country: str) -> list[Option]:
+    country_select_list: list[Option] = [
+        Option(item, value=item, selected=(item == country))
+        for item in iso_list.ISO_3166
+    ]
+    country_select_list.insert(0, Option("", value="", selected=(country == "")))
+    return country_select_list
+
+
+from fasthtml.common import *
 from collections import OrderedDict
 import phonenumbers as pn
 import phonenumbers.carrier as pn_carrier
@@ -186,4 +198,6 @@ def details_page(req: Request, number: str, country: str):
             Table(Tr(Td("Carrier", width=td_width), Td(carrier_result))),
         )
     except pn.NumberParseException:
+        if number.startswith("+"):
+            number = number.replace("+", "")
         return invalid_number_card(number, country)
