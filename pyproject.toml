@@ -7,5 +7,5 @@ requires-python = ">=3.12"
 dependencies = [
     "peewee>=3.18.1",
     "phonenumbers>=9.0.7",
-    "python-fasthtml>=0.12.19",
+    "python-fasthtml>=0.12.36",
 ]

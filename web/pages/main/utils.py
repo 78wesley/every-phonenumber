@@ -198,6 +198,5 @@ def details_page(req: Request, number: str, country: str):
             Table(Tr(Td("Carrier", width=td_width), Td(carrier_result))),
         )
     except pn.NumberParseException:
-        if number.startswith("+"):
-            number = number.replace("+", "")
+        number = ''.join(n for n in number if n.isdigit())
         return invalid_number_card(number, country)

@@ -1,5 +1,5 @@
 from fasthtml.common import *
-from .pages import register_routes
+from web.pages import register_routes
 
 # TODO take a look at this chatgpt chat: https://chatgpt.com/c/684c6e2a-85c4-8008-8d19-73d53d89b78c
 
