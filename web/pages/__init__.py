@@ -2,7 +2,7 @@ import importlib
 import os
 
 
-def register_routes(app, log=False):
+def register_routes(app, debug: bool = False):
     # Dynamically import all route modules and register them if route starts with `rt`
     pages_dir = os.path.dirname(__file__)
     for root, dirs, files in os.walk(pages_dir):
@@ -12,7 +12,7 @@ def register_routes(app, log=False):
                 module_name = relative_path.replace(os.sep, ".")
                 module = importlib.import_module(f"web.pages.{module_name}.routes")
                 if hasattr(module, "rt"):
-                    if log:
+                    if debug:
                         print(f"Registering routes from module: {module_name}")
                         for route in module.rt.routes:
                             methods = ", ".join(route[2])

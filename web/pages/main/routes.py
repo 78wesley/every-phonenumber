@@ -3,9 +3,10 @@ from web.pages.main.utils import details_page, CountryOptionList, noinput_card
 
 rt = APIRouter()
 
+
 # TODO add country and language selection
 @rt("/")
-def get(req: Request, number: str = "", country: str = ""):
+def get(req: Request, number: str = "", country: str = "", pagetype: str = "details"):
     return Container(
         Form(
             Label("Search Phone Number:", _for="number"),
@@ -39,8 +40,8 @@ def get(req: Request, number: str = "", country: str = ""):
             method="get",
             style="margin-bottom: 1rem;",
         ),
-        (details_page(req, number, country=country) if number else noinput_card()),
-        id="main",
+        (details_page(req, number, country=country, pagetype=pagetype) if number else noinput_card()),
+        id="main-content",
     )
 
 
