@@ -18,19 +18,20 @@ from urllib import parse as urllib_parse
 
 
 def recommandation_message(number: str, country: str):
-    number = f"+{number}"
-    return H6(
-        "Do you mean: ",
-        I(
-            A(
-                number,
-                href=f"?number={urllib_parse.quote(number)}&country={urllib_parse.quote(country)}",
-                target="_self",
-            )
-        ),
-        " ?",
-        style="display:inline",
-    )
+    if number:
+        num = f"+{number}"
+        return H6(
+            "Do you mean: ",
+            I(
+                A(
+                    num,
+                    href=f"?number={urllib_parse.quote(num)}&country={urllib_parse.quote(country)}",
+                    target="_self",
+                )
+            ),
+            " ?",
+            style="display:inline",
+        )
 
 
 def invalid_number_card(number: str = "", country: str = ""):
@@ -149,22 +150,20 @@ def details_page(req: Request, number: str, country: str, pagetype: str = "detai
         ]
 
         return Div(
-            Group(
-                Button(
-                    "Details",
-                    hx_get=f"?number={urllib_parse.quote(number)}&country={urllib_parse.quote(country)}?pagetype=details",
-                    hx_target="#main-content",
-                    hx_swap="outerHTML",
-                    hx_push_url="true",
-                ),
-                Button(
-                    "LibPhoneNumber",
-                    hx_get=f"?number={urllib_parse.quote(number)}&country={urllib_parse.quote(country)}?pagetype=libphonenumber",
-                    hx_target="#main-content",
-                    hx_swap="outerHTML",
-                    hx_push_url="true",
-                ),
-            ),
+            # Group(
+            #     Button(
+            #         "Details",
+            #         hx_get=f"?number={urllib_parse.quote(number)}&country={urllib_parse.quote(country)}?pagetype=details",
+            #         hx_target="#main-content",
+            #         hx_swap="outerHTML",
+            #     ),
+            #     Button(
+            #         "LibPhoneNumber",
+            #         hx_get=f"?number={urllib_parse.quote(number)}&country={urllib_parse.quote(country)}?pagetype=libphonenumber",
+            #         hx_target="#main-content",
+            #         hx_swap="outerHTML",
+            #     ),
+            # ),
             (
                 Card(
                     (recommandation_message(number, country) if not numobj.country_code_source == pn.CountryCodeSource.FROM_NUMBER_WITH_PLUS_SIGN else ""),
